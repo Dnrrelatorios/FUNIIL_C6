@@ -43,6 +43,7 @@ body.light .ms-option:hover{background:#e8edf3;}
 body.light .ms-option.checked{background:#ddeeff;}
 body.light .dt-row td{background:#fff!important;}
 body.light .dt-row.best td{background:rgba(26,127,55,.05)!important;}
+body.light .dt-row.sab-row td{background:rgba(210,153,34,.04)!important;}
 body.light .db-g{background:#d4f0de;color:#1a7f37;}
 body.light .db-o{background:#fef3cd;color:#9a6700;}
 body.light .db-r{background:#fde8e8;color:#cf222e;}
@@ -99,6 +100,31 @@ body.light .db-r{background:#fde8e8;color:#cf222e;}
 .ms-option{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;font-size:12px;color:var(--text);}
 .ms-option:hover{background:var(--surface2);}
 .ms-option input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;cursor:pointer;}
+/* DAY TYPE BUTTONS */
+.day-type-btns{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.dt-type-btn{background:var(--surface2);border:none;color:var(--muted);padding:5px 12px;cursor:pointer;font-family:'Barlow',sans-serif;font-size:11px;font-weight:600;transition:all .2s;}
+.dt-type-btn.active{background:var(--accent);color:#fff;}
+.dt-type-btn:hover:not(.active){background:var(--border);color:var(--text);}
+.dt-type-btn.sab.active{background:#d29922;}
+/* SAB BADGE */
+.sab-badge{display:inline-block;background:#7a5500;color:#d29922;font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;letter-spacing:.5px;margin-left:4px;}
+.sab-row td{background:#1a150500!important;}
+/* DIAS CONFIG */
+.dias-config-panel{margin:0 0 10px;padding:12px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);}
+.dias-config-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;}
+.dias-config-title{font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;}
+.dias-config-sub{font-size:11px;color:var(--muted);}
+.dias-config-grid{display:flex;flex-wrap:wrap;gap:12px;}
+.dias-card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:10px 14px;min-width:160px;}
+.dias-card-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.dias-inputs{display:flex;gap:10px;}
+.dias-input-group{flex:1;}
+.dias-input-label{font-size:10px;font-weight:600;margin-bottom:3px;}
+.dias-input-label.du{color:#2e7de9;}
+.dias-input-label.sab{color:#d29922;}
+.dias-input{width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-size:13px;font-weight:700;text-align:center;font-family:'Barlow',sans-serif;}
+.dias-input:focus{outline:none;border-color:var(--accent);}
+.dias-input-det{font-size:9px;color:var(--muted);margin-top:2px;}
 .ms-option.checked{background:rgba(46,125,233,.12);}
 /* MAIN */
 .main{padding:20px 24px;display:flex;flex-direction:column;gap:24px;}
@@ -441,9 +467,26 @@ svg.funnel-svg{overflow:visible;}
         </div>
       </div>
     </div>
-    <div class="filter-group" style="justify-content:flex-end;align-self:flex-end">
-      <button class="ms-action-btn" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 14px;font-size:11px;cursor:pointer" onclick="clearAllDailyFilters()">✕ Limpar Tudo</button>
+    <div class="filter-group">
+      <span class="filter-label">Tipo de Dia</span>
+      <div class="day-type-btns">
+        <button id="dtBtnTodos" class="dt-type-btn active" onclick="setDayType('todos')">Todos</button>
+        <button id="dtBtnUtil" class="dt-type-btn" onclick="setDayType('util')">Dias Úteis</button>
+        <button id="dtBtnSabado" class="dt-type-btn sab" onclick="setDayType('sabado')">Sábados</button>
+      </div>
     </div>
+    <div class="filter-group" style="justify-content:flex-end;align-self:flex-end;display:flex;flex-direction:row;gap:8px;align-items:center">
+      <button class="ms-action-btn" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:5px 14px;font-size:11px;cursor:pointer" onclick="clearAllDailyFilters()">✕ Limpar Tudo</button>
+      <button class="analysis-btn" style="padding:5px 14px;font-size:11px" onclick="exportDailyHTML()">⬇ Exportar HTML</button>
+    </div>
+  </div>
+  <!-- DIAS TRABALHADOS CONFIG -->
+  <div id="diasConfigPanel" style="display:none;margin:0 0 10px;padding:12px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+    <div class="dias-config-header">
+      <span class="dias-config-title">📆 Dias Trabalhados por Mês</span>
+      <span class="dias-config-sub">Configure dias úteis e sábados de cada mês para cálculo de médias</span>
+    </div>
+    <div id="diasConfigGrid" class="dias-config-grid"></div>
   </div>
   <div class="main">
     <div><div class="section-title">Indicadores — Último Dia</div><div class="kpi-grid" id="dKpiGrid"></div></div>
@@ -1060,6 +1103,8 @@ function render(){
 
 // ── DAILY MULTISELECT STATE ──
 var selectedDMes=null, selectedDFaixa=null, selectedDRanking=null, selectedDModo=null, selectedDData=null;
+var selectedDTipoDia='todos';
+var diasConfig={};
 var DMS_CONFIG={
   Mes:  {stateKey:'selectedDMes',  dataFn:function(){ var MN={'01':'JAN','02':'FEV','03':'MAR','04':'ABR','05':'MAI','06':'JUN','07':'JUL','08':'AGO','09':'SET','10':'OUT','11':'NOV','12':'DEZ'}; var seen={},out=[]; dailyData.forEach(function(r){ var m=(r.DATA_REF||'').slice(0,7); if(m&&!seen[m]){ seen[m]=1; out.push(m); }}); return out.sort().map(function(m){ var p=m.split('-'); return {val:m,lbl:(MN[p[1]]||p[1])+' '+p[0]}; }); }, labelAll:'Todos', labelPlural:function(n){ return n+' meses'; }},
   Faixa:{stateKey:'selectedDFaixa', dataFn:function(){ return getUniqueD('FAIXA').map(function(v){return{val:v,lbl:v};}); }, labelAll:'Todas', labelPlural:function(n){ return n+' faixas'; }},
@@ -1108,7 +1153,7 @@ function updateDMSTriggerText(name){
 }
 function selectAllDMS(name){ setDMSState(name,null); buildDMSOptions(name,''); var inp=document.querySelector('#dmsDropdown'+name+' input[type=text]'); if(inp) inp.value=''; renderDaily(); }
 function clearAllDMS(name){ setDMSState(name,new Set()); buildDMSOptions(name,''); var inp=document.querySelector('#dmsDropdown'+name+' input[type=text]'); if(inp) inp.value=''; renderDaily(); }
-function clearAllDailyFilters(){ ['Mes','Faixa','Ranking','Modo','Data'].forEach(function(n){ setDMSState(n,new Set()); buildDMSOptions(n,''); }); renderDaily(); }
+function clearAllDailyFilters(){ ['Mes','Faixa','Ranking','Modo','Data'].forEach(function(n){ setDMSState(n,new Set()); buildDMSOptions(n,''); }); selectedDTipoDia='todos'; ['Todos','Util','Sabado'].forEach(function(t){ var btn=document.getElementById('dtBtn'+t); if(btn) btn.classList.toggle('active',t==='Todos'); }); renderDaily(); }
 // ── DAILY LOGIC ──
 function getUniqueD(key){
   var seen={},out=[];
@@ -1117,6 +1162,62 @@ function getUniqueD(key){
 }
 function rebuildDailyFilters(){
   ['Mes','Faixa','Ranking','Modo','Data'].forEach(function(n){ buildDMSOptions(n,''); });
+  diasConfig={};
+  buildDiasConfig();
+}
+// ── DAY TYPE HELPERS ──
+function getDayType(dateStr){
+  if(!dateStr) return 'util';
+  var d=new Date(dateStr+'T12:00:00');
+  return d.getDay()===6?'sabado':'util';
+}
+function setDayType(tipo){
+  selectedDTipoDia=tipo;
+  var map={todos:'Todos',util:'Util',sabado:'Sabado'};
+  ['todos','util','sabado'].forEach(function(t){
+    var btn=document.getElementById('dtBtn'+map[t]);
+    if(btn) btn.classList.toggle('active',t===tipo);
+  });
+  renderDaily();
+}
+function buildDiasConfig(){
+  var months={};
+  dailyData.forEach(function(r){
+    var d=r.DATA_REF; if(!d) return;
+    var m=d.slice(0,7); if(!months[m]) months[m]={util:new Set(),sab:new Set()};
+    if(getDayType(d)==='sabado') months[m].sab.add(d); else months[m].util.add(d);
+  });
+  var MN={'01':'JAN','02':'FEV','03':'MAR','04':'ABR','05':'MAI','06':'JUN','07':'JUL','08':'AGO','09':'SET','10':'OUT','11':'NOV','12':'DEZ'};
+  var sortedMonths=Object.keys(months).sort();
+  var panel=document.getElementById('diasConfigPanel');
+  if(!sortedMonths.length){ if(panel) panel.style.display='none'; return; }
+  if(panel) panel.style.display='';
+  var grid=document.getElementById('diasConfigGrid');
+  if(!grid) return;
+  grid.innerHTML='';
+  sortedMonths.forEach(function(m){
+    var p=m.split('-'), label=(MN[p[1]]||p[1])+' '+p[0];
+    var duDet=months[m].util.size, sabDet=months[m].sab.size;
+    if(!diasConfig[m]) diasConfig[m]={du:duDet,sab:sabDet};
+    var card=document.createElement('div');
+    card.className='dias-card';
+    card.innerHTML='<div class="dias-card-title">'+label+'</div>'+
+      '<div class="dias-inputs">'+
+      '<div class="dias-input-group"><div class="dias-input-label du">DIAS ÚTEIS</div>'+
+      '<input type="number" class="dias-input" min="0" max="31" value="'+diasConfig[m].du+'" data-mes="'+m+'" data-tipo="du" onchange="updateDiasConfig(this)">'+
+      '<div class="dias-input-det">detectado: '+duDet+'</div></div>'+
+      '<div class="dias-input-group"><div class="dias-input-label sab">SÁBADOS</div>'+
+      '<input type="number" class="dias-input" min="0" max="6" value="'+diasConfig[m].sab+'" data-mes="'+m+'" data-tipo="sab" onchange="updateDiasConfig(this)">'+
+      '<div class="dias-input-det">detectado: '+sabDet+'</div></div>'+
+      '</div>';
+    grid.appendChild(card);
+  });
+}
+function updateDiasConfig(inp){
+  var m=inp.dataset.mes, tipo=inp.dataset.tipo;
+  if(!diasConfig[m]) diasConfig[m]={du:0,sab:0};
+  diasConfig[m][tipo]=parseInt(inp.value)||0;
+  renderDaily();
 }
 function getDailyFiltered(){
   return dailyData.filter(function(r){
@@ -1125,6 +1226,7 @@ function getDailyFiltered(){
     if(selectedDRanking!==null&&!selectedDRanking.has(r.RANKING)) return false;
     if(selectedDModo!==null&&!selectedDModo.has(r.MODO)) return false;
     if(selectedDData!==null&&!selectedDData.has(r.DATA_REF)) return false;
+    if(selectedDTipoDia!=='todos'&&getDayType(r.DATA_REF)!==selectedDTipoDia) return false;
     return true;
   });
 }
@@ -1142,11 +1244,19 @@ function sumDailyByMonth(data){
   var res={};
   data.forEach(function(r){
     var k=(r.DATA_REF||'').slice(0,7); if(!k) return;
-    if(!res[k]) res[k]={mes:k,ACIO:0,ALO:0,CPC:0,CPCA:0,ACORDO:0,dias:new Set()};
+    if(!res[k]) res[k]={mes:k,ACIO:0,ALO:0,CPC:0,CPCA:0,ACORDO:0,dias:new Set(),_util:new Set(),_sab:new Set()};
     res[k].ACIO+=(r.ACIO||0); res[k].ALO+=(r.ALO||0); res[k].CPC+=(r.CPC||0);
     res[k].CPCA+=(r.CPCA||0); res[k].ACORDO+=(r.ACORDO||0); res[k].dias.add(r.DATA_REF);
+    if(getDayType(r.DATA_REF)==='sabado') res[k]._sab.add(r.DATA_REF); else res[k]._util.add(r.DATA_REF);
   });
-  return Object.values(res).sort(function(a,b){ return a.mes.localeCompare(b.mes); }).map(function(m){ m.dias=m.dias.size; return m; });
+  return Object.values(res).sort(function(a,b){ return a.mes.localeCompare(b.mes); }).map(function(m){
+    var cfg=diasConfig[m.mes];
+    m.dias=m.dias.size;
+    m.diasUtil=cfg?cfg.du:m._util.size;
+    m.diasSab=cfg?cfg.sab:m._sab.size;
+    delete m._util; delete m._sab;
+    return m;
+  });
 }
 
 var MES_THEME={
@@ -1167,7 +1277,8 @@ function renderFunnelComp(data){
     var th=getMesTheme(m.mes), prev=mi>0?byMonth[mi-1]:null;
     h+='<div class="d-comp-card" style="border-color:'+th.color+'44">';
     h+='<div class="d-comp-header" style="background:linear-gradient('+th.grad+')15;border-bottom:1px solid '+th.color+'33">';
-    h+='<div><div class="d-comp-month" style="color:'+th.color+'">'+th.name+'</div><div class="d-comp-sub">'+m.dias+' dias · '+fmt(m.ACORDO)+' acordos</div></div>';
+    var diasLabel=m.diasUtil+' DU'+(m.diasSab?' + <span style="color:#d29922">'+m.diasSab+' SAB</span>':'');
+    h+='<div><div class="d-comp-month" style="color:'+th.color+'">'+th.name+'</div><div class="d-comp-sub">'+diasLabel+' · '+fmt(m.ACORDO)+' acordos</div></div>';
     h+='<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:'+th.color+'">'+pctS(m.ACORDO,m.CPCA)+'</div><div style="font-size:10px;color:var(--muted)">conv.</div></div></div>';
     h+='<div class="d-comp-steps">';
     STEPS.forEach(function(s){
@@ -1213,7 +1324,8 @@ function renderDailyTable(byDate){
     var alC=alo>=60?'db-g':alo>=35?'db-o':'db-r';
     var cpC=cpc>=60?'db-g':cpc>=35?'db-o':'db-r';
     var best=d.data===bA.data||d.data===bC.data;
-    return '<tr class="dt-row'+(best?' best':'')+'"><td>'+d.data.slice(5)+(best?' ⭐':'')+'</td><td>'+fmt(d.ACIO)+'</td><td>'+fmt(d.ALO)+'</td><td><span class="dt-badge '+alC+'">'+alo.toFixed(1)+'%</span></td><td>'+fmt(d.CPC)+'</td><td><span class="dt-badge '+cpC+'">'+cpc.toFixed(1)+'%</span></td><td>'+fmt(d.CPCA)+'</td><td><strong style="color:var(--green)">'+fmt(d.ACORDO)+'</strong></td><td><span class="dt-badge '+cvC+'">'+conv.toFixed(2)+'%</span></td></tr>';
+    var isSab=getDayType(d.data)==='sabado';
+    return '<tr class="dt-row'+(best?' best':'')+(isSab?' sab-row':'')+'"><td>'+d.data.slice(5)+(isSab?' <span class="sab-badge">SAB</span>':'')+(best?' ⭐':'')+'</td><td>'+fmt(d.ACIO)+'</td><td>'+fmt(d.ALO)+'</td><td><span class="dt-badge '+alC+'">'+alo.toFixed(1)+'%</span></td><td>'+fmt(d.CPC)+'</td><td><span class="dt-badge '+cpC+'">'+cpc.toFixed(1)+'%</span></td><td>'+fmt(d.CPCA)+'</td><td><strong style="color:var(--green)">'+fmt(d.ACORDO)+'</strong></td><td><span class="dt-badge '+cvC+'">'+conv.toFixed(2)+'%</span></td></tr>';
   }).join('');
 }
 function generateBestDay(){
@@ -1300,6 +1412,39 @@ function renderDaily(){
   });
 }
 
+
+// ── EXPORT DAILY HTML ──
+function exportDailyHTML(){
+  var pageEl=document.getElementById('pageDaily');
+  if(!pageEl){ alert('Sem dados para exportar.'); return; }
+  // Convert canvas to static images in a clone
+  var clone=pageEl.cloneNode(true);
+  var origCanvases=pageEl.querySelectorAll('canvas');
+  var cloneCanvases=clone.querySelectorAll('canvas');
+  origCanvases.forEach(function(cv,i){
+    var img=document.createElement('img');
+    try{ img.src=cv.toDataURL('image/png'); } catch(e){ img.src=''; }
+    img.style.cssText='width:100%;display:block;border-radius:4px;';
+    if(cloneCanvases[i]) cloneCanvases[i].parentNode.replaceChild(img,cloneCanvases[i]);
+  });
+  // Remove upload/action buttons from export clone
+  clone.querySelectorAll('input[type=file],#diasConfigPanel .dias-input').forEach(function(el){ el.setAttribute('readonly','readonly'); });
+  // Collect styles
+  var styleTexts='';
+  document.querySelectorAll('style').forEach(function(s){ styleTexts+=s.innerHTML+'\n'; });
+  // Font links
+  var fontLinks='';
+  document.querySelectorAll('link[rel=stylesheet]').forEach(function(l){ fontLinks+='<link rel="stylesheet" href="'+l.href+'">\n'; });
+  // Theme attribute
+  var themeAttr=document.body.getAttribute('data-theme')||'';
+  var html='<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>Visão Diária — DNR C6 — '+new Date().toLocaleDateString('pt-BR')+'</title>\n'+fontLinks+'<style>body{margin:0;padding:16px;font-family:Barlow,sans-serif}\n'+styleTexts+'</style>\n</head>\n<body'+(themeAttr?' data-theme="'+themeAttr+'"':'')+'>\n'+clone.outerHTML+'\n</body>\n</html>';
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='daily_dnr_'+new Date().toISOString().slice(0,10)+'.html';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); },1000);
+}
 
 // ── DAILY PERIOD COMPARISON ANALYSIS ──
 // ── Popula os selects de datas disponíveis ──
