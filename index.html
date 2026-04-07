@@ -499,7 +499,16 @@ svg.funnel-svg{overflow:visible;}
   <div class="main">
     <div><div class="section-title">Indicadores — Último Dia</div><div class="kpi-grid" id="dKpiGrid"></div></div>
     <div>
-      <div class="section-title">Funil Comparativo por Mês (acumulado)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <div class="section-title" style="margin-bottom:0">Funil Comparativo por Mês (acumulado)</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px">Mostrar:</span>
+          <div class="var-toggle">
+            <button class="var-toggle-btn active" id="compNormBtnTotal" onclick="setCompNorm('total')">Total</button>
+            <button class="var-toggle-btn" id="compNormBtnDU" onclick="setCompNorm('du')">&#247; DU</button>
+          </div>
+        </div>
+      </div>
       <div id="dCompGrid" class="d-comp-grid"></div>
     </div>
     <div>
@@ -1133,6 +1142,7 @@ function render(){
 // ── DAILY MULTISELECT STATE ──
 var selectedDMes=null, selectedDFaixa=null, selectedDRanking=null, selectedDModo=null, selectedDData=null;
 var selectedDTipoDia='todos';
+var normFunnelComp='total';
 var diasConfig={};
 var DMS_CONFIG={
   Mes:  {stateKey:'selectedDMes',  dataFn:function(){ var MN={'01':'JAN','02':'FEV','03':'MAR','04':'ABR','05':'MAI','06':'JUN','07':'JUL','08':'AGO','09':'SET','10':'OUT','11':'NOV','12':'DEZ'}; var seen={},out=[]; dailyData.forEach(function(r){ var m=(r.DATA_REF||'').slice(0,7); if(m&&!seen[m]){ seen[m]=1; out.push(m); }}); return out.sort().map(function(m){ var p=m.split('-'); return {val:m,lbl:(MN[p[1]]||p[1])+' '+p[0]}; }); }, labelAll:'Todos', labelPlural:function(n){ return n+' meses'; }},
@@ -1207,6 +1217,13 @@ function setDayType(tipo){
     var btn=document.getElementById('dtBtn'+map[t]);
     if(btn) btn.classList.toggle('active',t===tipo);
   });
+  renderDaily();
+}
+function setCompNorm(mode){
+  normFunnelComp=mode;
+  var btnT=document.getElementById('compNormBtnTotal'), btnD=document.getElementById('compNormBtnDU');
+  if(btnT) btnT.classList.toggle('active',mode==='total');
+  if(btnD) btnD.classList.toggle('active',mode==='du');
   renderDaily();
 }
 function buildDiasConfig(){
@@ -1300,39 +1317,45 @@ function renderFunnelComp(data){
   var byMonth=sumDailyByMonth(data);
   var el=document.getElementById('dCompGrid');
   if(!byMonth.length){ el.innerHTML='<div style="color:var(--muted)">Sem dados.</div>'; return; }
-  var STEPS=[{key:'ACIO',label:'Acionamento'},{key:'ALO',label:'ALO'},{key:'CPC',label:'CPC'},{key:'CPCA',label:'CPCA'},{key:'ACORDO',label:'Acordo'}];
+  var isDU=normFunnelComp==='du';
+  // helper: normalize a count by DU (for display only; ratios stay raw)
+  function norm(val,du){ return isDU ? Math.round(val/(du||1)*10)/10 : val; }
   var h='<div class="d-comp-grid">';
+  var STEPS=[{key:'ACIO',label:'Acionamento'},{key:'ALO',label:'ALO'},{key:'CPC',label:'CPC'},{key:'CPCA',label:'CPCA'},{key:'ACORDO',label:'Acordo'}];
   byMonth.forEach(function(m,mi){
+    var du=m.diasUtil||1;
     var th=getMesTheme(m.mes), prev=mi>0?byMonth[mi-1]:null;
     h+='<div class="d-comp-card" style="border-color:'+th.color+'44">';
     h+='<div class="d-comp-header" style="background:linear-gradient('+th.grad+')15;border-bottom:1px solid '+th.color+'33">';
     var diasLabel=m.diasUtil+' DU'+(m.diasSab?' + <span style="color:#d29922">'+m.diasSab+' SAB</span>':'');
-    h+='<div><div class="d-comp-month" style="color:'+th.color+'">'+th.name+'</div><div class="d-comp-sub">'+diasLabel+' · '+fmt(m.ACORDO)+' acordos</div></div>';
+    var acordoDisp=isDU?'~'+fmt(norm(m.ACORDO,du))+'/DU':fmt(m.ACORDO)+' acordos';
+    h+='<div><div class="d-comp-month" style="color:'+th.color+'">'+th.name+'</div><div class="d-comp-sub">'+diasLabel+' · '+acordoDisp+'</div></div>';
     h+='<div style="text-align:right"><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:'+th.color+'">'+pctS(m.ACORDO,m.CPCA)+'</div><div style="font-size:10px;color:var(--muted)">conv.</div></div></div>';
     h+='<div class="d-comp-steps">';
     STEPS.forEach(function(s){
-      var val=m[s.key]||0;
-      var base=s.key==='CPC'?m.ALO:m.ACIO;
-      var w=base>0?Math.max(val/base*100,1.5):1.5;
-      var pct=s.key==='ACIO'?'100%':s.key==='CPC'?pctS(val,m.ALO):pctS(val,m.ACIO);
-      h+='<div class="d-step"><div class="d-step-name">'+s.label+'</div>';
+      var raw=m[s.key]||0, base=s.key==='CPC'?m.ALO:m.ACIO;
+      var w=base>0?Math.max(raw/base*100,1.5):1.5;
+      var pct=s.key==='ACIO'?'100%':s.key==='CPC'?pctS(raw,m.ALO):pctS(raw,m.ACIO);
+      var dispVal=fmt(norm(raw,du));
+      h+='<div class="d-step"><div class="d-step-name">'+s.label+(isDU?' <span style="font-size:8px;color:var(--muted)">/DU</span>':'')+'</div>';
       h+='<div class="d-step-track"><div class="d-step-fill" style="width:'+Math.min(w,100)+'%;background:linear-gradient('+th.grad+')">';
-      h+='<span class="d-step-fill-val">'+fmt(val)+'</span><span class="d-step-fill-pct">'+pct+'</span></div></div></div>';
+      h+='<span class="d-step-fill-val">'+dispVal+'</span><span class="d-step-fill-pct">'+pct+'</span></div></div></div>';
     });
     h+='</div>';
     if(prev){
+      var prevDu=prev.diasUtil||1;
       h+='<div style="height:1px;background:var(--border);margin:0 20px"></div>';
       h+='<div style="padding:10px 20px 14px;display:flex;gap:8px;flex-wrap:wrap">';
       var deltas=[
-        {lbl:'Acion.',cur:m.ACIO,prv:prev.ACIO,pct:false},
+        {lbl:'Acion.'+(isDU?'/DU':''),cur:norm(m.ACIO,du),prv:norm(prev.ACIO,prevDu),pct:false},
         {lbl:'ALO%',cur:pctN(m.ALO,m.ACIO),prv:pctN(prev.ALO,prev.ACIO),pct:true},
-        {lbl:'CPC',cur:m.CPC,prv:prev.CPC,pct:false},
-        {lbl:'Acordo',cur:m.ACORDO,prv:prev.ACORDO,pct:false},
+        {lbl:'CPC'+(isDU?'/DU':''),cur:norm(m.CPC,du),prv:norm(prev.CPC,prevDu),pct:false},
+        {lbl:'Acordo'+(isDU?'/DU':''),cur:norm(m.ACORDO,du),prv:norm(prev.ACORDO,prevDu),pct:false},
         {lbl:'Conv%',cur:pctN(m.ACORDO,m.CPCA),prv:pctN(prev.ACORDO,prev.CPCA),pct:true}
       ];
       deltas.forEach(function(d){
         var diff=d.cur-d.prv, up=diff>=0, c=up?'#3fb950':'#f85149';
-        var txt=d.pct?(diff>=0?'+':'')+diff.toFixed(1)+'pp':(diff>=0?'+':'')+fmt(Math.round(diff));
+        var txt=d.pct?(diff>=0?'+':'')+diff.toFixed(1)+'pp':(diff>=0?'+':'')+fmt(Math.round(diff*10)/10);
         h+='<div style="flex:1;min-width:52px;background:var(--surface2);border-radius:6px;padding:7px 6px;text-align:center">';
         h+='<div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">'+d.lbl+'</div>';
         h+='<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:800;color:'+c+'">'+(up?'▲':'▼')+' '+txt+'</div></div>';
